@@ -44,4 +44,7 @@ void setup(void) {
   Serial.println("Setup done");
 }
 
-void loop() { audioFilePlayer.update(); }
+void loop() {
+  audioFilePlayer.update();
+  delay(1);
+}

@@ -14,6 +14,9 @@ namespace tap {
  * index. It's also responsible of managing an audio driver to play the files
  * with.
  *
+ * It includes a volume control and access to the latest peak values of the
+ * audio being played. This can be used to set a visualizer or an LED or something to indicate status.
+ *
  */
 class AudioFilePlayer {
 public:
@@ -36,7 +39,7 @@ public:
       const auto fileFinished = !isPlaying();
 
       // TODO: Use for adding gaps between files
-      const auto timeOfFileFinished = millis();
+      // const auto timeOfFileFinished = millis();
 
       // If file finished, do something
       if (fileFinished) {
@@ -135,13 +138,28 @@ public:
 
   void toggleShuffle() { mShuffle = !mShuffle; }
 
+  // A number between 0.0 and 1.0
+  void setVolume(float volume) {
+    AudioNoInterrupts();
+    amp_left.gain(volume);
+    amp_right.gain(volume);
+    AudioInterrupts();
+  }
+
   void setupAudioConnections() {
-    Serial.println("Setting up audio connections without EQ");
     disconnectAll();
 
     // Direct output
-    patchCord1.connect(playSd1, 0, i2s2, 0);
-    patchCord2.connect(playSd1, 1, i2s2, 1);
+    // patchCord1.connect(playSd1, 0, i2s2, 0);
+    // patchCord2.connect(playSd1, 1, i2s2, 1);
+
+    // Amplify
+    patchCord5.connect(playSd1, 0, amp_left, 0);
+    patchCord6.connect(playSd1, 1, amp_right, 0);
+
+    // Output
+    patchCord7.connect(amp_left, 0, i2s2, 0);
+    patchCord8.connect(amp_right, 0, i2s2, 1);
 
     // Analysis
     patchCord3.connect(playSd1, 0, peak_left, 0);
@@ -166,6 +184,9 @@ public:
     return ok;
   }
 
+  auto getPeakLeft() { return peak_left.read(); }
+  auto getPeakRight() { return peak_right.read(); }
+
 protected:
   bool mShuffle = false;
   bool mIsPlaying = false;
@@ -176,6 +197,7 @@ protected:
 
   AudioOutputI2S i2s2;
   AudioAnalyzePeak peak_left{}, peak_right{};
+  AudioAmplifier amp_left, amp_right;
   AudioPlaySdWav playSd1;
   AudioConnection patchCord1, patchCord2, patchCord3, patchCord4, patchCord5,
       patchCord6, patchCord7, patchCord8;
