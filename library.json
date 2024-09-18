@@ -1,0 +1,25 @@
+{
+  "name": "TeensyAudioFilePlayer",
+  "version": "0.1.0",
+  "description": "Convenience library for playing audio files on Teensy 3.x and 4.x microcontroller boards",
+  "keywords": "observer, observable, Arduino",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/madskjeldgaard/TeensyAudioFilePlayerLibrary"
+  },
+  "authors":
+  [
+    {
+      "name": "Mads Kjeldgaard",
+      "email": "madskjeldgaardnielsen@gmail.com",
+      "url": "https://www.madskjeldgaard.dk/",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "dependencies": {
+  },
+  "frameworks": ["arduino"],
+  "platforms": ["teensy"]
+}
