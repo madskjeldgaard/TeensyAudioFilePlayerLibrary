@@ -26,7 +26,18 @@ public:
   bool begin() {
     AudioNoInterrupts();
     setupAudioConnections();
+
+    #ifdef USING_TEENSY_AUDIO_SHIELD
+      audioShield.enable();
+      audioShield.inputSelect(AUDIO_INPUT_LINEIN);
+      audioShield.volume(1.0);
+    #endif
+
+    // Set the volume
+    setVolume(0.5f);
+
     AudioInterrupts();
+
     return true;
   }
 
@@ -193,11 +204,15 @@ protected:
 
   int mCurrentPlayingFileIndex = 0;
 
+  #ifdef USING_TEENSY_AUDIO_SHIELD
+    AudioControlSGTL5000 audioShield;
+  #endif
+
   AudioFileManager &mAudioFileManager;
 
   AudioOutputI2S i2s2;
   AudioAnalyzePeak peak_left{}, peak_right{};
-  AudioAmplifier amp_left, amp_right;
+  AudioAmplifier amp_left{}, amp_right{};
   AudioPlaySdWav playSd1;
   AudioConnection patchCord1, patchCord2, patchCord3, patchCord4, patchCord5,
       patchCord6, patchCord7, patchCord8;
