@@ -15,7 +15,8 @@ namespace tap {
  * with.
  *
  * It includes a volume control and access to the latest peak values of the
- * audio being played. This can be used to set a visualizer or an LED or something to indicate status.
+ * audio being played. This can be used to set a visualizer or an LED or
+ * something to indicate status.
  *
  */
 class AudioFilePlayer {
@@ -23,18 +24,35 @@ public:
   explicit AudioFilePlayer(AudioFileManager &manager)
       : mAudioFileManager(manager) {}
 
+  bool fileFinished() {
+    const auto position = playSd1.positionMillis();
+    const auto length = playSd1.lengthMillis();
+
+    return position >= length;
+  }
+
+  // Returns a value between 0.0 and 1.0
+  float progress() {
+    const auto position = playSd1.positionMillis();
+    const auto length = playSd1.lengthMillis();
+
+    return static_cast<float>(position) / static_cast<float>(length);
+  }
+
   bool begin() {
     AudioNoInterrupts();
     setupAudioConnections();
 
-    #ifdef USING_TEENSY_AUDIO_SHIELD
-      audioShield.enable();
-      audioShield.inputSelect(AUDIO_INPUT_LINEIN);
-      audioShield.volume(1.0);
-    #endif
+#ifdef USING_TEENSY_AUDIO_SHIELD
+    audioShield.enable();
+    audioShield.inputSelect(AUDIO_INPUT_LINEIN);
+    audioShield.volume(1.0);
+#endif
 
     // Set the volume
     setVolume(0.5f);
+
+    playSd1.begin();
 
     AudioInterrupts();
 
@@ -47,17 +65,19 @@ public:
     // - Gap between audio files
 
     if (mIsPlaying) {
-      const auto fileFinished = !isPlaying();
-
-      // TODO: Use for adding gaps between files
-      // const auto timeOfFileFinished = millis();
+      const auto done = fileFinished();
 
       // If file finished, do something
-      if (fileFinished) {
+      if (done) {
+
+        Serial.println("File finished");
+
         // Play next
         if (mShuffle) {
+          Serial.println("Shuffle mode active, randomizing next file");
           randomize();
         } else {
+          Serial.println("Playing next file");
           next();
         }
       }
@@ -77,9 +97,7 @@ public:
   void stop() {
     mIsPlaying = false;
     // Stop the audio
-    AudioNoInterrupts();
     playSd1.stop();
-    AudioInterrupts();
   }
 
   void togglePlay() {
@@ -100,10 +118,7 @@ public:
     if (mShuffle) {
       randomize();
     } else {
-      if (mIsPlaying) {
-        stop();
-        play();
-      }
+      play();
     }
   }
 
@@ -119,10 +134,7 @@ public:
     if (mShuffle) {
       randomize();
     } else {
-      if (mIsPlaying) {
-        stop();
-        play();
-      }
+      play();
     }
   }
 
@@ -136,10 +148,7 @@ public:
     Serial.println("Randomizing to " + String(newIndex));
     mCurrentPlayingFileIndex = newIndex;
 
-    if (mIsPlaying) {
-      stop();
-      play();
-    }
+    play();
   }
 
   bool isPlaying() { return playSd1.isPlaying(); }
@@ -189,9 +198,7 @@ public:
   }
 
   bool playWav(String fileName) {
-    AudioNoInterrupts();
     const auto ok = playSd1.play(fileName.c_str());
-    AudioInterrupts();
     return ok;
   }
 
@@ -204,9 +211,9 @@ protected:
 
   int mCurrentPlayingFileIndex = 0;
 
-  #ifdef USING_TEENSY_AUDIO_SHIELD
-    AudioControlSGTL5000 audioShield;
-  #endif
+#ifdef USING_TEENSY_AUDIO_SHIELD
+  AudioControlSGTL5000 audioShield;
+#endif
 
   AudioFileManager &mAudioFileManager;
 
