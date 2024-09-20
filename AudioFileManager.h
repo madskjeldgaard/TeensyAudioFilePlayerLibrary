@@ -78,6 +78,9 @@ private:
   }
 
   void initSDCard() {
+
+    pinMode(sdCSPin, OUTPUT);
+
     // If sdCSPin is -1, just initialize with default
     if (sdCSPin < 0) {
       if (!SD.begin()) {

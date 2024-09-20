@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AudioFileManager.h"
+#include <TeensyVariablePlayback.h>
 #include <Arduino.h>
 #include <Audio.h>
 #include <SD.h>
@@ -198,7 +199,8 @@ public:
   }
 
   bool playWav(String fileName) {
-    const auto ok = playSd1.play(fileName.c_str());
+    const auto ok = playSd1.playWav(fileName.c_str());
+    delay(25); // Allow the library to read the WAV info
     return ok;
   }
 
@@ -220,7 +222,8 @@ protected:
   AudioOutputI2S i2s2;
   AudioAnalyzePeak peak_left{}, peak_right{};
   AudioAmplifier amp_left{}, amp_right{};
-  AudioPlaySdWav playSd1;
+  // AudioPlaySdWav playSd1;
+  AudioPlaySdResmp playSd1;
   AudioConnection patchCord1, patchCord2, patchCord3, patchCord4, patchCord5,
       patchCord6, patchCord7, patchCord8;
 };
