@@ -1,42 +1,31 @@
 #pragma once
 
 #include "AudioFileManager.h"
-#include <TeensyVariablePlayback.h>
 #include <Arduino.h>
 #include <Audio.h>
 #include <SD.h>
 #include <memory>
+#include <play_sd_aac.h>
+#include <play_sd_flac.h>
+#include <play_sd_mp3.h>
+#include <play_sd_opus.h>
 
 namespace tap {
 
-/**
- * @class AudioFilePlayer
- * @brief This class plays audio files and keeps track of currently playing
- * index. It's also responsible of managing an audio driver to play the files
- * with.
- *
- * It includes a volume control and access to the latest peak values of the
- * audio being played. This can be used to set a visualizer or an LED or
- * something to indicate status.
- *
- */
 class AudioFilePlayer {
 public:
   explicit AudioFilePlayer(AudioFileManager &manager)
       : mAudioFileManager(manager) {}
 
   bool fileFinished() {
-    const auto position = playSd1.positionMillis();
-    const auto length = playSd1.lengthMillis();
-
+    const auto position = playSdWav.positionMillis();
+    const auto length = playSdWav.lengthMillis();
     return position >= length;
   }
 
-  // Returns a value between 0.0 and 1.0
   float progress() {
-    const auto position = playSd1.positionMillis();
-    const auto length = playSd1.lengthMillis();
-
+    const auto position = playSdWav.positionMillis();
+    const auto length = playSdWav.lengthMillis();
     return static_cast<float>(position) / static_cast<float>(length);
   }
 
@@ -50,30 +39,16 @@ public:
     audioShield.volume(1.0);
 #endif
 
-    // Set the volume
     setVolume(0.5f);
-
-    playSd1.begin();
-
     AudioInterrupts();
-
     return true;
   }
 
   void update() {
-    // Update the audio player
-    // TODO:
-    // - Gap between audio files
-
     if (mIsPlaying) {
       const auto done = fileFinished();
-
-      // If file finished, do something
       if (done) {
-
         Serial.println("File finished");
-
-        // Play next
         if (mShuffle) {
           Serial.println("Shuffle mode active, randomizing next file");
           randomize();
@@ -87,9 +62,7 @@ public:
 
   void play() {
     const auto path = mAudioFileManager.getFilePath(mCurrentPlayingFileIndex);
-
-    auto ok = playWav(path);
-
+    auto ok = playAudioFile(path);
     mIsPlaying = ok;
     Serial.println(ok ? "Playing audio file " + path
                       : "Could not play " + path);
@@ -97,12 +70,10 @@ public:
 
   void stop() {
     mIsPlaying = false;
-    // Stop the audio
-    playSd1.stop();
+    playSdWav.stop();
   }
 
   void togglePlay() {
-    // Toggle the play state
     if (mIsPlaying) {
       stop();
     } else {
@@ -111,11 +82,9 @@ public:
   }
 
   void next() {
-    // Play the next audio
     Serial.println("Playing next file");
     mCurrentPlayingFileIndex =
         (mCurrentPlayingFileIndex + 1) % mAudioFileManager.numAudioFiles();
-
     if (mShuffle) {
       randomize();
     } else {
@@ -124,14 +93,12 @@ public:
   }
 
   void prev() {
-    // Wrap around
     if (mCurrentPlayingFileIndex <= 0) {
       mCurrentPlayingFileIndex = mAudioFileManager.numAudioFiles() - 1;
     } else {
       mCurrentPlayingFileIndex =
           (mCurrentPlayingFileIndex - 1) % mAudioFileManager.numAudioFiles();
     }
-
     if (mShuffle) {
       randomize();
     } else {
@@ -141,25 +108,20 @@ public:
 
   void randomize() {
     auto newIndex = random(0, mAudioFileManager.numAudioFiles());
-
     while (newIndex == mCurrentPlayingFileIndex) {
       newIndex = random(0, mAudioFileManager.numAudioFiles());
     }
-
     Serial.println("Randomizing to " + String(newIndex));
     mCurrentPlayingFileIndex = newIndex;
-
     play();
   }
 
-  bool isPlaying() { return playSd1.isPlaying(); }
+  bool isPlaying() { return playSdWav.isPlaying(); }
 
-  // Enable or disable shuffle mode
   void shuffle(bool enable) { mShuffle = enable; }
 
   void toggleShuffle() { mShuffle = !mShuffle; }
 
-  // A number between 0.0 and 1.0
   void setVolume(float volume) {
     AudioNoInterrupts();
     amp_left.gain(volume);
@@ -168,40 +130,51 @@ public:
   }
 
   void setupAudioConnections() {
-    disconnectAll();
+    // Connect WAV player to mixers
+    patchCord1 = AudioConnection(playSdWav, 0, mixerLeft, 0);
+    patchCord2 = AudioConnection(playSdWav, 1, mixerRight, 0);
 
-    // Direct output
-    // patchCord1.connect(playSd1, 0, i2s2, 0);
-    // patchCord2.connect(playSd1, 1, i2s2, 1);
+    // Connect MP3 player to mixers
+    patchCord3 = AudioConnection(playSdMp3, 0, mixerLeft, 1);
+    patchCord4 = AudioConnection(playSdMp3, 1, mixerRight, 1);
 
-    // Amplify
-    patchCord5.connect(playSd1, 0, amp_left, 0);
-    patchCord6.connect(playSd1, 1, amp_right, 0);
+    // Connect AAC player to mixers
+    patchCord5 = AudioConnection(playSdAac, 0, mixerLeft, 2);
+    patchCord6 = AudioConnection(playSdAac, 1, mixerRight, 2);
 
-    // Output
-    patchCord7.connect(amp_left, 0, i2s2, 0);
-    patchCord8.connect(amp_right, 0, i2s2, 1);
+    // Connect FLAC player to mixers
+    patchCord7 = AudioConnection(playSdFlac, 0, mixerLeft, 3);
+    patchCord8 = AudioConnection(playSdFlac, 1, mixerRight, 3);
+
+    // Connect mixers to amplifiers
+    patchCord9 = AudioConnection(mixerLeft, 0, amp_left, 0);
+    patchCord10 = AudioConnection(mixerRight, 0, amp_right, 0);
+
+    // Connect amplifiers to output
+    patchCord11 = AudioConnection(amp_left, 0, i2s2, 0);
+    patchCord12 = AudioConnection(amp_right, 0, i2s2, 1);
 
     // Analysis
-    patchCord3.connect(playSd1, 0, peak_left, 0);
-    patchCord4.connect(playSd1, 1, peak_right, 1);
+    patchCord13 = AudioConnection(playSdWav, 0, peak_left, 0);
+    patchCord14 = AudioConnection(playSdWav, 1, peak_right, 1);
   }
 
-  void disconnectAll() {
-    patchCord1.disconnect();
-    patchCord2.disconnect();
-    patchCord3.disconnect();
-    patchCord4.disconnect();
-    patchCord5.disconnect();
-    patchCord6.disconnect();
-    patchCord7.disconnect();
-    patchCord8.disconnect();
-  }
-
-  bool playWav(String fileName) {
-    const auto ok = playSd1.playWav(fileName.c_str());
-    delay(25); // Allow the library to read the WAV info
-    return ok;
+  bool playAudioFile(String fileName) {
+    switch (getFileType(fileName)) {
+    case SupportedFileTypes::WAV:
+      return playSdWav.play(fileName.c_str());
+    case SupportedFileTypes::MP3:
+      return playSdMp3.play(fileName.c_str());
+    case SupportedFileTypes::AAC:
+      return playSdAac.play(fileName.c_str());
+    case SupportedFileTypes::FLAC:
+      return playSdFlac.play(fileName.c_str());
+    case SupportedFileTypes::OPUS:
+      return playSdOpus.play(fileName.c_str());
+    default:
+      Serial.println("Unsupported file type");
+      return false;
+    }
   }
 
   auto getPeakLeft() { return peak_left.read(); }
@@ -210,7 +183,6 @@ public:
 protected:
   bool mShuffle = false;
   bool mIsPlaying = false;
-
   int mCurrentPlayingFileIndex = 0;
 
 #ifdef USING_TEENSY_AUDIO_SHIELD
@@ -222,10 +194,19 @@ protected:
   AudioOutputI2S i2s2;
   AudioAnalyzePeak peak_left{}, peak_right{};
   AudioAmplifier amp_left{}, amp_right{};
-  // AudioPlaySdWav playSd1;
-  AudioPlaySdResmp playSd1;
+  AudioPlaySdWav playSdWav;
+  AudioPlaySdMp3 playSdMp3;
+  AudioPlaySdAac playSdAac;
+  AudioPlaySdFlac playSdFlac;
+
+  // FIXME: Unconnected
+  AudioPlaySdOpus playSdOpus;
+
+  AudioMixer4 mixerLeft, mixerRight;
+
   AudioConnection patchCord1, patchCord2, patchCord3, patchCord4, patchCord5,
-      patchCord6, patchCord7, patchCord8;
+      patchCord6, patchCord7, patchCord8, patchCord9, patchCord10, patchCord11,
+      patchCord12, patchCord13, patchCord14;
 };
 
 } // namespace tap

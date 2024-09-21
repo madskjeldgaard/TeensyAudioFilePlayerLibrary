@@ -19,7 +19,8 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "https://github.com/newdigate/teensy-variable-playback"
+    "https://github.com/newdigate/teensy-variable-playback",
+    "https://github.com/FrankBoesing/Arduino-Teensy-Codec-lib"
   },
   "frameworks": ["arduino"],
   "platforms": ["teensy"]
