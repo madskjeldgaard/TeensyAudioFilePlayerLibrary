@@ -24,9 +24,26 @@ public:
   }
 
   float progress() {
-    const auto position = playSdWav.positionMillis();
-    const auto length = playSdWav.lengthMillis();
-    return static_cast<float>(position) / static_cast<float>(length);
+
+    switch (mCurrentlyPlayingFileType) {
+    case SupportedFileTypes::WAV:
+      return static_cast<float>(playSdWav.positionMillis()) /
+             static_cast<float>(playSdWav.lengthMillis());
+    case SupportedFileTypes::MP3:
+      return static_cast<float>(playSdMp3.positionMillis()) /
+             static_cast<float>(playSdMp3.lengthMillis());
+    case SupportedFileTypes::OPUS:
+      return static_cast<float>(playSdOpus.positionMillis()) /
+             static_cast<float>(playSdOpus.lengthMillis());
+    case SupportedFileTypes::FLAC:
+      return static_cast<float>(playSdFlac.positionMillis()) /
+             static_cast<float>(playSdFlac.lengthMillis());
+    case SupportedFileTypes::AAC:
+      return static_cast<float>(playSdAac.positionMillis()) /
+             static_cast<float>(playSdAac.lengthMillis());
+    case SupportedFileTypes::UNKNOWN:
+      return 0.0f;
+    }
   }
 
   bool begin() {
@@ -41,6 +58,24 @@ public:
 
     setVolume(0.5f);
     AudioInterrupts();
+
+    // playSdWav.begin();
+    // playSdMp3.begin();
+    // playSdAac.begin();
+    // playSdFlac.begin();
+    // playSdOpus.begin();
+
+    // Set all mixer channels to 1
+    mixerLeft.gain(0, 1);
+    mixerLeft.gain(1, 1);
+    mixerLeft.gain(2, 1);
+    mixerLeft.gain(3, 1);
+
+    mixerRight.gain(0, 1);
+    mixerRight.gain(1, 1);
+    mixerRight.gain(2, 1);
+    mixerRight.gain(3, 1);
+
     return true;
   }
 
@@ -61,6 +96,13 @@ public:
   }
 
   void play() {
+    if (mAudioFileManager.numAudioFiles() == 0) {
+      Serial.println("No audio files found");
+      return;
+    }
+
+    stop();
+
     const auto path = mAudioFileManager.getFilePath(mCurrentPlayingFileIndex);
     auto ok = playAudioFile(path);
     mIsPlaying = ok;
@@ -70,7 +112,12 @@ public:
 
   void stop() {
     mIsPlaying = false;
+
     playSdWav.stop();
+    playSdMp3.stop();
+    playSdAac.stop();
+    playSdFlac.stop();
+    playSdOpus.stop();
   }
 
   void togglePlay() {
@@ -116,8 +163,6 @@ public:
     play();
   }
 
-  bool isPlaying() { return playSdWav.isPlaying(); }
-
   void shuffle(bool enable) { mShuffle = enable; }
 
   void toggleShuffle() { mShuffle = !mShuffle; }
@@ -131,50 +176,65 @@ public:
 
   void setupAudioConnections() {
     // Connect WAV player to mixers
-    patchCord1 = AudioConnection(playSdWav, 0, mixerLeft, 0);
-    patchCord2 = AudioConnection(playSdWav, 1, mixerRight, 0);
+    patchCord1.connect(playSdWav, 0, mixerLeft, 0);
+    patchCord2.connect(playSdWav, 1, mixerRight, 0);
 
     // Connect MP3 player to mixers
-    patchCord3 = AudioConnection(playSdMp3, 0, mixerLeft, 1);
-    patchCord4 = AudioConnection(playSdMp3, 1, mixerRight, 1);
+    patchCord3.connect(playSdMp3, 0, mixerLeft, 1);
+    patchCord4.connect(playSdMp3, 1, mixerRight, 1);
 
     // Connect AAC player to mixers
-    patchCord5 = AudioConnection(playSdAac, 0, mixerLeft, 2);
-    patchCord6 = AudioConnection(playSdAac, 1, mixerRight, 2);
+    patchCord5.connect(playSdAac, 0, mixerLeft, 2);
+    patchCord6.connect(playSdAac, 1, mixerRight, 2);
 
     // Connect FLAC player to mixers
-    patchCord7 = AudioConnection(playSdFlac, 0, mixerLeft, 3);
-    patchCord8 = AudioConnection(playSdFlac, 1, mixerRight, 3);
+    patchCord7.connect(playSdFlac, 0, mixerLeft, 3);
+    patchCord8.connect(playSdFlac, 1, mixerRight, 3);
 
     // Connect mixers to amplifiers
-    patchCord9 = AudioConnection(mixerLeft, 0, amp_left, 0);
-    patchCord10 = AudioConnection(mixerRight, 0, amp_right, 0);
+    patchCord9.connect(mixerLeft, 0, amp_left, 0);
+    patchCord10.connect(mixerRight, 0, amp_right, 0);
 
     // Connect amplifiers to output
-    patchCord11 = AudioConnection(amp_left, 0, i2s2, 0);
-    patchCord12 = AudioConnection(amp_right, 0, i2s2, 1);
+    patchCord11.connect(amp_left, 0, i2s2, 0);
+    patchCord12.connect(amp_right, 0, i2s2, 1);
 
     // Analysis
-    patchCord13 = AudioConnection(playSdWav, 0, peak_left, 0);
-    patchCord14 = AudioConnection(playSdWav, 1, peak_right, 1);
+    patchCord13 = AudioConnection(amp_left, 0, peak_left, 0);
+    patchCord14 = AudioConnection(amp_right, 1, peak_right, 1);
   }
 
   bool playAudioFile(String fileName) {
-    switch (getFileType(fileName)) {
+    const auto path = fileName.c_str();
+    auto result = false;
+    const auto filetype = getFileType(fileName);
+
+    switch (filetype) {
     case SupportedFileTypes::WAV:
-      return playSdWav.play(fileName.c_str());
+      result = playSdWav.play(path);
+      break;
     case SupportedFileTypes::MP3:
-      return playSdMp3.play(fileName.c_str());
+      result = playSdMp3.play(path);
+      break;
     case SupportedFileTypes::AAC:
-      return playSdAac.play(fileName.c_str());
+      result = playSdAac.play(path);
+      break;
     case SupportedFileTypes::FLAC:
-      return playSdFlac.play(fileName.c_str());
+      result = playSdFlac.play(path);
+      break;
     case SupportedFileTypes::OPUS:
-      return playSdOpus.play(fileName.c_str());
+      result = playSdOpus.play(path);
+      Serial.println("WARNING: Playing OPUS files is not supported yet");
+      break;
     default:
       Serial.println("Unsupported file type");
-      return false;
+      result = false;
+      break;
     }
+
+    mCurrentlyPlayingFileType = filetype;
+
+    return result;
   }
 
   auto getPeakLeft() { return peak_left.read(); }
@@ -188,6 +248,8 @@ protected:
 #ifdef USING_TEENSY_AUDIO_SHIELD
   AudioControlSGTL5000 audioShield;
 #endif
+
+  SupportedFileTypes mCurrentlyPlayingFileType = SupportedFileTypes::UNKNOWN;
 
   AudioFileManager &mAudioFileManager;
 
