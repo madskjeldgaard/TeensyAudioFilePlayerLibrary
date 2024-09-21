@@ -7,6 +7,27 @@
 
 namespace tap {
 
+enum class SupportedFileTypes { WAV, MP3, OPUS, FLAC, AAC, UNKNOWN };
+
+// Get file type from file extension
+// Could be any of the supported file types, flac, mp3, ogg, aac, wav,etc
+auto getFileType(const String &filename) {
+
+  if (filename.endsWith(".wav") || filename.endsWith(".WAV")) {
+    return SupportedFileTypes::WAV;
+  } else if (filename.endsWith(".mp3") || filename.endsWith(".MP3")) {
+    return SupportedFileTypes::MP3;
+  } else if (filename.endsWith(".flac") || filename.endsWith(".FLAC")) {
+    return SupportedFileTypes::FLAC;
+  } else if (filename.endsWith(".opus") || filename.endsWith(".OPUS")) {
+    return SupportedFileTypes::OPUS;
+  } else if (filename.endsWith(".aac") || filename.endsWith(".AAC")) {
+    return SupportedFileTypes::AAC;
+  }
+
+  return SupportedFileTypes::UNKNOWN;
+}
+
 /*
  *
  * This class manages the SD card and the wav files on it.
@@ -44,11 +65,12 @@ public:
 private:
   auto isHiddenFile(const String &filename) { return filename.startsWith("."); }
 
-  auto isWavFile(const String &filename) {
-    int m = filename.lastIndexOf(".WAV");
-    int a = filename.lastIndexOf(".wav");
-
-    return (m > 0 || a > 0) && !isHiddenFile(filename);
+  auto isAudioFile(const String &filename) {
+    if (isHiddenFile(filename)) {
+      return false;
+    } else {
+      return getFileType(filename) != SupportedFileTypes::UNKNOWN;
+    }
   }
 
   // Iterate through the directory and populate the filenames,
@@ -68,7 +90,7 @@ private:
       }
       String curfile = file.name();
 
-      if (isWavFile(curfile)) {
+      if (isAudioFile(curfile)) {
         mFilenames.push_back((mDirectory + curfile).c_str());
       }
 

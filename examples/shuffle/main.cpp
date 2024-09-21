@@ -28,7 +28,7 @@ tap::AudioFilePlayer audioFilePlayer(audioFileManager);
 
 // Arduino Setup
 void setup(void) {
-  AudioMemory(16);
+  AudioMemory(24);
 
   // Open Serial
   Serial.begin(9600);
@@ -40,7 +40,12 @@ void setup(void) {
 #ifdef USING_TEENSY_AUDIO_SHIELD
 #pragma message "Using Teensy Audio Shield"
 
+#ifdef HAS_BUILTIN_SD
+  const auto csPin = BUILTIN_SDCARD;
+#else
   const auto csPin = 10;
+#endif
+
   constexpr int mosiPin = 7;
   constexpr int sckPin = 14;
   constexpr int misoPin = 12;
@@ -51,7 +56,14 @@ void setup(void) {
 
   audioFileManager.begin(audioDirectory, csPin);
 #else
+
+#ifdef HAS_BUILTIN_SD
+  const auto csPin = BUILTIN_SDCARD;
+  audioFileManager.begin(audioDirectory, csPin);
+#else
   audioFileManager.begin(audioDirectory);
+#endif
+
 #endif
   audioFilePlayer.begin();
 

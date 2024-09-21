@@ -5,3 +5,5 @@ A convenience library for playing audio files from an SD card on the Teensy plat
 The libraries classes take care of setting up the SD card, reading all the files in the folder and then provides a simple interface for playing them, choosing the next file, previous, shuffling, etc.
 
 See the examples for more information.
+
+Supported file types are FLAC, MP3, WAV and AAC.
