@@ -212,8 +212,8 @@ public:
     patchCord12.connect(amp_right, 0, i2s2, 1);
 
     // Analysis
-    patchCord13 = AudioConnection(amp_left, 0, peak_left, 0);
-    patchCord14 = AudioConnection(amp_right, 1, peak_right, 1);
+    patchCord13.connect(amp_left, 0, peak_left, 0);
+    patchCord14.connect(amp_right, 1, peak_right, 1);
   }
 
   bool playAudioFile(String fileName) {
