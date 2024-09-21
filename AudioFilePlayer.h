@@ -2,7 +2,6 @@
 
 #include "AudioFileManager.h"
 #include <Arduino.h>
-#include <Audio.h>
 #include <SD.h>
 #include <memory>
 #include <play_sd_aac.h>
@@ -68,8 +67,9 @@ public:
     audioShield.volume(1.0);
 #endif
 
-    setVolume(0.5f);
     AudioInterrupts();
+
+    setVolume(0.5f);
 
     // playSdWav.begin();
     // playSdMp3.begin();
@@ -166,10 +166,10 @@ public:
   }
 
   void randomize() {
-    auto newIndex = random(0, mAudioFileManager.numAudioFiles());
-    while (newIndex == mCurrentPlayingFileIndex) {
-      newIndex = random(0, mAudioFileManager.numAudioFiles());
-    }
+    auto newIndex = random(0, mAudioFileManager.numAudioFiles() - 1);
+    // while (newIndex == mCurrentPlayingFileIndex) {
+    //   newIndex = random(0, mAudioFileManager.numAudioFiles());
+    // }
     Serial.println("Randomizing to " + String(newIndex));
     mCurrentPlayingFileIndex = newIndex;
     play();
@@ -223,19 +223,23 @@ public:
 
     switch (filetype) {
     case SupportedFileTypes::WAV:
+      Serial.println("Playing WAV file");
       result = playSdWav.play(path);
       break;
     case SupportedFileTypes::MP3:
-      result = playSdMp3.play(path);
+      Serial.println("Playing MP3 file");
+      result = playSdMp3.play(path) == ERR_CODEC_NONE;
       break;
     case SupportedFileTypes::AAC:
-      result = playSdAac.play(path);
+      Serial.println("Playing AAC file");
+      result = playSdAac.play(path) == ERR_CODEC_NONE;
       break;
     case SupportedFileTypes::FLAC:
-      result = playSdFlac.play(path);
+      Serial.println("Playing FLAC file");
+      result = playSdFlac.play(path) == ERR_CODEC_NONE;
       break;
     case SupportedFileTypes::OPUS:
-      result = playSdOpus.play(path);
+      result = playSdOpus.play(path) == ERR_CODEC_NONE;
       Serial.println("WARNING: Playing OPUS files is not supported yet");
       break;
     default:
@@ -269,6 +273,7 @@ protected:
   AudioAnalyzePeak peak_left{}, peak_right{};
   AudioAmplifier amp_left{}, amp_right{};
   AudioPlaySdWav playSdWav;
+
   AudioPlaySdMp3 playSdMp3;
   AudioPlaySdAac playSdAac;
   AudioPlaySdFlac playSdFlac;
