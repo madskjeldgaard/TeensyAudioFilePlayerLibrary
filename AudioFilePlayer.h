@@ -17,14 +17,9 @@ public:
   explicit AudioFilePlayer(AudioFileManager &manager)
       : mAudioFileManager(manager) {}
 
-  bool fileFinished() {
-    const auto position = playSdWav.positionMillis();
-    const auto length = playSdWav.lengthMillis();
-    return position >= length;
-  }
+  bool fileFinished() { return progress() >= 1.0f; }
 
   float progress() {
-
     switch (mCurrentlyPlayingFileType) {
     case SupportedFileTypes::WAV:
       return static_cast<float>(playSdWav.positionMillis()) /
@@ -41,6 +36,23 @@ public:
     case SupportedFileTypes::AAC:
       return static_cast<float>(playSdAac.positionMillis()) /
              static_cast<float>(playSdAac.lengthMillis());
+    case SupportedFileTypes::UNKNOWN:
+      return 0.0f;
+    }
+  }
+
+  float duration() {
+    switch (mCurrentlyPlayingFileType) {
+    case SupportedFileTypes::WAV:
+      return static_cast<float>(playSdWav.lengthMillis());
+    case SupportedFileTypes::MP3:
+      return static_cast<float>(playSdMp3.lengthMillis());
+    case SupportedFileTypes::OPUS:
+      return static_cast<float>(playSdOpus.lengthMillis());
+    case SupportedFileTypes::FLAC:
+      return static_cast<float>(playSdFlac.lengthMillis());
+    case SupportedFileTypes::AAC:
+      return static_cast<float>(playSdAac.lengthMillis());
     case SupportedFileTypes::UNKNOWN:
       return 0.0f;
     }
