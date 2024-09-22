@@ -16,46 +16,66 @@ public:
   explicit AudioFilePlayer(AudioFileManager &manager)
       : mAudioFileManager(manager) {}
 
-  bool fileFinished() { return progress() >= 1.0f; }
-
-  float progress() {
+  bool isPlaying() {
     switch (mCurrentlyPlayingFileType) {
     case SupportedFileTypes::WAV:
-      return static_cast<float>(playSdWav.positionMillis()) /
-             static_cast<float>(playSdWav.lengthMillis());
+      return playSdWav.isPlaying();
     case SupportedFileTypes::MP3:
-      return static_cast<float>(playSdMp3.positionMillis()) /
-             static_cast<float>(playSdMp3.lengthMillis());
+      return playSdMp3.isPlaying();
     case SupportedFileTypes::OPUS:
-      return static_cast<float>(playSdOpus.positionMillis()) /
-             static_cast<float>(playSdOpus.lengthMillis());
+      return playSdOpus.isPlaying();
     case SupportedFileTypes::FLAC:
-      return static_cast<float>(playSdFlac.positionMillis()) /
-             static_cast<float>(playSdFlac.lengthMillis());
+      return playSdFlac.isPlaying();
     case SupportedFileTypes::AAC:
-      return static_cast<float>(playSdAac.positionMillis()) /
-             static_cast<float>(playSdAac.lengthMillis());
+      return playSdAac.isPlaying();
     case SupportedFileTypes::UNKNOWN:
-      return 0.0f;
+      return false;
     }
+
+    return false;
   }
 
-  float duration() {
-    switch (mCurrentlyPlayingFileType) {
-    case SupportedFileTypes::WAV:
-      return static_cast<float>(playSdWav.lengthMillis());
-    case SupportedFileTypes::MP3:
-      return static_cast<float>(playSdMp3.lengthMillis());
-    case SupportedFileTypes::OPUS:
-      return static_cast<float>(playSdOpus.lengthMillis());
-    case SupportedFileTypes::FLAC:
-      return static_cast<float>(playSdFlac.lengthMillis());
-    case SupportedFileTypes::AAC:
-      return static_cast<float>(playSdAac.lengthMillis());
-    case SupportedFileTypes::UNKNOWN:
-      return 0.0f;
-    }
-  }
+  // bool fileFinished() { return progress() >= 1.0f; }
+  // FIXME: This doesn't work with mp3s?
+  // float progress() {
+  //   switch (mCurrentlyPlayingFileType) {
+  //   case SupportedFileTypes::WAV:
+  //     return static_cast<float>(playSdWav.positionMillis()) /
+  //            static_cast<float>(playSdWav.lengthMillis());
+  //   case SupportedFileTypes::MP3:
+  //     return static_cast<float>(playSdMp3.positionMillis()) /
+  //            static_cast<float>(playSdMp3.lengthMillis());
+  //   case SupportedFileTypes::OPUS:
+  //     return static_cast<float>(playSdOpus.positionMillis()) /
+  //            static_cast<float>(playSdOpus.lengthMillis());
+  //   case SupportedFileTypes::FLAC:
+  //     return static_cast<float>(playSdFlac.positionMillis()) /
+  //            static_cast<float>(playSdFlac.lengthMillis());
+  //   case SupportedFileTypes::AAC:
+  //     return static_cast<float>(playSdAac.positionMillis()) /
+  //            static_cast<float>(playSdAac.lengthMillis());
+  //   case SupportedFileTypes::UNKNOWN:
+  //     return 0.0f;
+  //   }
+  // }
+
+  // FIXME: This doesn't work with mp3s?
+  // float duration() {
+  //   switch (mCurrentlyPlayingFileType) {
+  //   case SupportedFileTypes::WAV:
+  //     return static_cast<float>(playSdWav.lengthMillis());
+  //   case SupportedFileTypes::MP3:
+  //     return static_cast<float>(playSdMp3.lengthMillis());
+  //   case SupportedFileTypes::OPUS:
+  //     return static_cast<float>(playSdOpus.lengthMillis());
+  //   case SupportedFileTypes::FLAC:
+  //     return static_cast<float>(playSdFlac.lengthMillis());
+  //   case SupportedFileTypes::AAC:
+  //     return static_cast<float>(playSdAac.lengthMillis());
+  //   case SupportedFileTypes::UNKNOWN:
+  //     return 0.0f;
+  //   }
+  // }
 
   bool begin() {
     AudioNoInterrupts();
@@ -70,12 +90,6 @@ public:
     AudioInterrupts();
 
     setVolume(0.5f);
-
-    // playSdWav.begin();
-    // playSdMp3.begin();
-    // playSdAac.begin();
-    // playSdFlac.begin();
-    // playSdOpus.begin();
 
     // Set all mixer channels to 1
     mixerLeft.gain(0, 1);
@@ -92,8 +106,11 @@ public:
   }
 
   void update() {
-    if (mIsPlaying) {
-      const auto done = fileFinished();
+
+    if (mShouldBePlaying) {
+      // const auto done = fileFinished();
+      const auto done = !isPlaying();
+
       if (done) {
         Serial.println("File finished");
         if (mShuffle) {
@@ -117,13 +134,13 @@ public:
 
     const auto path = mAudioFileManager.getFilePath(mCurrentPlayingFileIndex);
     auto ok = playAudioFile(path);
-    mIsPlaying = ok;
+    mShouldBePlaying = ok;
     Serial.println(ok ? "Playing audio file " + path
                       : "Could not play " + path);
   }
 
   void stop() {
-    mIsPlaying = false;
+    mShouldBePlaying = false;
 
     playSdWav.stop();
     playSdMp3.stop();
@@ -133,7 +150,7 @@ public:
   }
 
   void togglePlay() {
-    if (mIsPlaying) {
+    if (mShouldBePlaying) {
       stop();
     } else {
       play();
@@ -258,7 +275,7 @@ public:
 
 protected:
   bool mShuffle = false;
-  bool mIsPlaying = false;
+  bool mShouldBePlaying = false;
   int mCurrentPlayingFileIndex = 0;
 
 #ifdef USING_TEENSY_AUDIO_SHIELD
